@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习工作台【自定义修复版】</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        sun: '#f59e0b',
+                        card: '#f8fafc'
+                    },
+                    fontFamily: {
+                        sans: ['system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .task-card {transition: 0.2s ease;}
+        .task-card:hover {transform: translateY(-2px);box-shadow: 0 4px 12px rgba(0,0,0,0.08);}
+        .sidebar-item.active {background-color: #2563eb;color:#fff;}
+        ::-webkit-scrollbar {width:6px;height:6px;}
+        ::-webkit-scrollbar-thumb {background:#cbd5e1;border-radius:4px;}
+    </style>
+</head>
+<body class="bg-slate-100 h-screen flex flex-col overflow-hidden">
+    <!-- 顶部头部 -->
+    <header class="bg-white shadow-sm px-4 py-3 flex items-center justify-between z-10 flex-wrap gap-3">
+        <div class="flex items-center gap-4 flex-wrap">
+            <h1 id="mainTitle" class="text-xl font-bold text-primary">📚 学习工作台（自定义修复版）</h1>
+            <div class="flex items-center gap-2">
+                <span>学生：</span>
+                <input id="studentName" class="border border-slate-300 rounded px-2 py-1 w-36 focus:outline-none focus:ring-1 focus:ring-primary">
+                <button onclick="saveName()" class="text-sm bg-primary text-white px-2 py-1 rounded">保存</button>
+            </div>
+        </div>
+        <div class="flex items-center gap-4 flex-wrap">
+            <div class="text-sun font-semibold"><i class="fa fa-sun-o"></i> 阳光积分：<span id="totalScore">0</span></div>
+            <div class="text-slate-700"><i class="fa fa-calendar-check-o"></i> 连续打卡：<span id="continueDay">0</span> 天</div>
+            <button onclick="dailyCheck()" class="bg-green-500 text-white px-3 py-1.5 rounded hover:bg-green-600 whitespace-nowrap">每日打卡 +5积分</button>
+            <div class="relative group">
+                <button class="bg-slate-200 px-3 py-1.5 rounded">数据管理</button>
+                <div class="hidden group-hover:block absolute right-0 mt-1 bg-white shadow-lg rounded border w-44 z-20">
+                    <button onclick="exportData()" class="w-full text-left px-3 py-2 hover:bg-slate-100">导出备份</button>
+                    <label class="block w-full text-left px-3 py-2 hover:bg-slate-100 cursor-pointer">
+                        导入恢复
+                        <input type="file" accept=".json" class="hidden" onchange="importData(event)">
+                    </label>
+                    <button onclick="restoreDefaultTemplate()" class="w-full text-left px-3 py-2 hover:bg-blue-100 text-blue-600">恢复默认学科模板</button>
+                    <button onclick="if(confirm('确定清空所有数据？无法恢复！')){clearAllData()}" class="w-full text-left px-3 py-2 hover:bg-red-100 text-red-600">清空全部数据</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- 左侧学科导航 -->
+        <aside class="w-64 bg-white shadow p-3 overflow-y-auto flex-shrink-0">
+            <h3 class="font-bold text-slate-600 mb-3">📖 学科导航</h3>
+            <div class="flex gap-1 mb-3">
+                <input id="newSubjectInput" placeholder="新增学科名称" class="border rounded px-2 py-1 flex-1 text-sm">
+                <button onclick="addSubject()" class="bg-primary text-white px-2 rounded text-sm">添加</button>
+            </div>
+            <nav id="subjectNav" class="space-y-1">
+            </nav>
+            <div class="border-t mt-4 pt-4 space-y-2">
+                <button onclick="switchShop()" class="w-full bg-sun text-white py-2 rounded flex items-center justify-center gap-2 hover:bg-amber-500">
+                    <i class="fa fa-gift"></i>阳光兑换商店
+                </button>
+                <button onclick="openEditPanel()" class="w-full bg-slate-500 text-white py-2 rounded flex items-center justify-center gap-2 hover:bg-slate-600">
+                    <i class="fa fa-cog"></i>当前学科单元管理
+                </button>
+            </div>
+        </aside>
+
+        <!-- 主内容区域 -->
+        <main class="flex-1 p-5 overflow-y-auto">
+            <div id="subjectPanel">
+                <h2 class="text-lg font-bold mb-4" id="panelTitle">请左侧选择学科</h2>
+                <div id="unitContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                </div>
+            </div>
+
+            <!-- 学科单元编辑弹窗 -->
+            <div id="editPanel" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-lg p-5 w-full max-w-md">
+                    <h3 class="font-bold text-lg mb-4">📝 当前学科单元管理</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input id="newUnitInput" placeholder="新增单元名称" class="border rounded px-2 py-1 flex-1">
+                        <button onclick="addUnit()" class="bg-primary text-white px-3 rounded">新增单元</button>
+                    </div>
+                    <div id="unitEditList" class="max-h-60 overflow-y-auto border rounded p-2 mb-4 space-y-2">
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button onclick="closeEditPanel()" class="px-4 py-2 bg-slate-200 rounded">关闭</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 新增任务弹窗 -->
+            <div id="taskAddPanel" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-lg p-5 w-full max-w-md">
+                    <h3 class="font-bold text-lg mb-4">➕ 添加学习任务</h3>
+                    <label class="block mb-1">任务名称</label>
+                    <input id="taskTitleInput" placeholder="任务名称" class="border rounded w-full px-2 py-2 mb-3">
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block mb-1">任务积分</label>
+                            <input id="taskScoreInput" type="number" value="3" min="1" class="border rounded px-2 py-1 w-full">
+                        </div>
+                        <div>
+                            <label class="block mb-1">截止日期（可选）</label>
+                            <input id="taskDateInput" type="date" class="border rounded px-2 py-1 w-full">
+                        </div>
+                    </div>
+                    <label class="block mb-1">备注（可选）</label>
+                    <textarea id="taskRemarkInput" rows="2" placeholder="补充说明" class="border rounded w-full px-2 py-2 mb-4"></textarea>
+                    <div class="flex justify-end gap-2">
+                        <button onclick="closeTaskAddPanel()" class="px-4 py-2 bg-slate-200 rounded">取消</button>
+                        <button onclick="saveNewTask()" class="px-4 py-2 bg-primary text-white rounded">保存</button>
+                    </div>
+                    <input type="hidden" id="targetUnitName">
+                </div>
+            </div>
+
+            <!-- 兑换商店面板 -->
+            <div id="shopPanel" class="hidden">
+                <h2 class="text-lg font-bold mb-4">🎁 阳光积分兑换商店</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="shopContainer"></div>
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="font-semibold mb-2">添加自定义奖励</h3>
+                    <div class="flex gap-2 flex-wrap">
+                        <input id="newRewardName" placeholder="奖励名称" class="border rounded px-2 py-1 flex-1 min-w-[160px]">
+                        <input id="newRewardCost" placeholder="所需积分" type="number" class="border rounded px-2 py-1 w-28">
+                        <button onclick="addReward()" class="bg-primary text-white px-3 rounded">新增</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+<script>
+const DEFAULT_SUBJECTS = [
+    {name:"语文",units:["第一单元","第二单元","第三单元","第四单元","期中复习","第五单元","第六单元","第七单元","第八单元","期末复习"]},
+    {name:"数学",units:["第一单元","第二单元","第三单元","第四单元","期中复习","第五单元","第六单元","第七单元","第八单元","期末复习"]},
+    {name:"英语",units:["Unit1","Unit2","Unit3","Unit4","期中复习","Unit5","Unit6","Unit7","Unit8","期末复习"]},
+    {name:"物理",units:["第一单元","第二单元","第三单元","第四单元","期中复习","第五单元","第六单元","第七单元","期末复习"]},
+    {name:"化学",units:["第一单元","第二单元","第三单元","第四单元","期中复习","第五单元","第六单元","期末复习"]},
+    {name:"地理",units:["第一单元","第二单元","第三单元","期中复习","第四单元","第五单元","期末复习"]},
+    {name:"历史",units:["第一单元","第二单元","第三单元","期中复习","第四单元","第五单元","期末复习"]},
+    {name:"生物",units:["第一单元","第二单元","第三单元","期中复习","第四单元","第五单元","期末复习"]},
+    {name:"道法",units:["第一单元","第二单元","第三单元","期中复习","第四单元","第五单元","期末复习"]}
+];
+
+const DEFAULT_REWARDS = [
+    {name:"看30分钟短视频",cost:30},
+    {name:"额外一小时休闲时间",cost:50},
+    {name:"选购一本课外书",cost:120},
+    {name:"周末外出游玩",cost:200},
+    {name:"兑换喜欢的零食",cost:40}
+];
+
+let appData = {
+    studentName:"",
+    totalScore:0,
+    continueDay:0,
+    lastCheckDate:"",
+    subjects:JSON.parse(JSON.stringify(DEFAULT_SUBJECTS)),
+    unitTasks:{},
+    tasks:{},
+    shopRewards:JSON.parse(JSON.stringify(DEFAULT_REWARDS)),
+    currentSubject:"",
+    showShop:false
+};
+
+// 更新顶部标题函数
+function updateMainTitle(){
+    const titleDom = document.getElementById("mainTitle");
+    if(appData.studentName && appData.studentName.trim() !== ""){
+        titleDom.textContent = `${appData.studentName} - 学习平台`;
+        document.title = `${appData.studentName} - 学习平台`;
+    }else{
+        titleDom.textContent = "📚 学习工作台（自定义修复版）";
+        document.title = "学习工作台【自定义修复版】";
+    }
+}
+
+function loadData(){
+    const raw = localStorage.getItem("sy7studyDataV2");
+    if(raw) appData = JSON.parse(raw);
+    // 【修复核心】遍历所有学科，兜底保证units一定是数组
+    appData.subjects.forEach(sub=>{
+        if(!Array.isArray(sub.units)) sub.units = [];
+    })
+    renderAll();
+    updateMainTitle();
+}
+function saveData(){
+    localStorage.setItem("sy7studyDataV2",JSON.stringify(appData));
+}
+
+function restoreDefaultTemplate(){
+    if(!confirm("确认恢复默认学科模板？现有自定义学科会被覆盖！")) return;
+    appData.subjects = JSON.parse(JSON.stringify(DEFAULT_SUBJECTS));
+    appData.unitTasks = {};
+    appData.tasks = {};
+    appData.currentSubject = "";
+    saveData();
+    renderAll();
+    alert("已恢复默认学科模板");
+}
+
+function saveName(){
+    appData.studentName = document.getElementById("studentName").value.trim();
+    saveData();
+    updateMainTitle();
+    alert("姓名保存成功！");
+}
+
+function getTodayStr(){
+    const d=new Date();
+    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+function dailyCheck(){
+    const today = getTodayStr();
+    if(appData.lastCheckDate === today){
+        alert("今日已经打卡过啦！");
+        return;
+    }
+    const last = appData.lastCheckDate;
+    appData.lastCheckDate = today;
+    if(!last){
+        appData.continueDay=1;
+    }else{
+        const lastDate = new Date(last);
+        const nowDate = new Date(today);
+        const diff = (nowDate - lastDate)/(1000*3600*24);
+        if(diff ===1) appData.continueDay +=1;
+        else appData.continueDay =1;
+    }
+    appData.totalScore +=5;
+    saveData();
+    renderAll();
+    alert(`打卡成功！获得5积分，连续打卡${appData.continueDay}天`);
+}
+
+// 新增学科（稳定版）
+function addSubject(){
+    const name = document.getElementById("newSubjectInput").value.trim();
+    if(!name) return alert("请输入学科名称");
+    const exist = appData.subjects.find(s=>s.name===name);
+    if(exist) return alert("该学科已存在");
+    appData.subjects.push({name,units:[]});
+    document.getElementById("newSubjectInput").value="";
+    saveData();
+    renderAll();
+}
+function delSubject(name){
+    if(!confirm(`确定删除学科【${name}】？所有相关任务记录一并清除！`)) return;
+    Object.keys(appData.unitTasks).forEach(key=>{
+        if(key.startsWith(name+"|")) delete appData.unitTasks[key];
+    });
+    Object.keys(appData.tasks).forEach(key=>{
+        if(key.startsWith(name+"_")) delete appData.tasks[key];
+    });
+    appData.subjects = appData.subjects.filter(s=>s.name!==name);
+    if(appData.currentSubject === name) appData.currentSubject="";
+    saveData();
+    renderAll();
+}
+function selectSubject(name){
+    appData.currentSubject = name;
+    appData.showShop = false;
+    // 选中学科时强制修复units数组
+    const sub = appData.subjects.find(s=>s.name === name);
+    if(sub && !Array.isArray(sub.units)) sub.units = [];
+    saveData();
+    renderAll();
+}
+
+// 单元管理
+function openEditPanel(){
+    document.getElementById("editPanel").classList.remove("hidden");
+    renderUnitEditList();
+}
+function closeEditPanel(){
+    document.getElementById("editPanel").classList.add("hidden");
+}
+function renderUnitEditList(){
+    const wrap = document.getElementById("unitEditList");
+    const sub = appData.subjects.find(s=>s.name===appData.currentSubject);
+    if(!sub) {wrap.innerHTML="<div class='text-slate-400'>请先选择左侧学科</div>";return;}
+    // 兜底修复
+    if(!Array.isArray(sub.units)) sub.units = [];
+    let html="";
+    sub.units.forEach((u,i)=>{
+        html += `<div class="flex justify-between items-center border-b py-1">
+            <span>${u}</span>
+            <button onclick="delUnit(${i})" class="text-red-500 text-sm">删除</button>
+        </div>`;
+    });
+    wrap.innerHTML=html;
+}
+function addUnit(){
+    const sub = appData.subjects.find(s=>s.name===appData.currentSubject);
+    if(!sub) return alert("请先选择学科");
+    // 兜底修复
+    if(!Array.isArray(sub.units)) sub.units = [];
+    const name = document.getElementById("newUnitInput").value.trim();
+    if(!name) return alert("填写单元名称");
+    if(sub.units.includes(name)) return alert("单元已存在");
+    sub.units.push(name);
+    document.getElementById("newUnitInput").value="";
+    saveData();
+    renderUnitEditList();
+    renderSubjectPanel();
+}
+function delUnit(index){
+    const sub = appData.subjects.find(s=>s.name===appData.currentSubject);
+    if(!sub) return;
+    if(!Array.isArray(sub.units)) sub.units = [];
+    const unitName = sub.units[index];
+    const key = `${sub.name}|${unitName}`;
+    delete appData.unitTasks[key];
+    Object.keys(appData.tasks).forEach(k=>{
+        if(k.startsWith(`${sub.name}_${unitName}_`)) delete appData.tasks[k];
+    });
+    sub.units.splice(index,1);
+    saveData();
+    renderUnitEditList();
+    renderSubjectPanel();
+}
+
+// 任务弹窗
+function openTaskAddPanel(unitName){
+    document.getElementById("targetUnitName").value = unitName;
+    document.getElementById("taskTitleInput").value="";
+    document.getElementById("taskScoreInput").value=3;
+    document.getElementById("taskDateInput").value="";
+    document.getElementById("taskRemarkInput").value="";
+    document.getElementById("taskAddPanel").classList.remove("hidden");
+}
+function closeTaskAddPanel(){
+    document.getElementById("taskAddPanel").classList.add("hidden");
+}
+function saveNewTask(){
+    const unitName = document.getElementById("targetUnitName").value;
+    const title = document.getElementById("taskTitleInput").value.trim();
+    const score = parseInt(document.getElementById("taskScoreInput").value);
+    const deadline = document.getElementById("taskDateInput").value;
+    const remark = document.getElementById("taskRemarkInput").value.trim();
+    if(!title || isNaN(score)||score<=0) return alert("填写完整任务名称与积分");
+    const subName = appData.currentSubject;
+    const key = `${subName}|${unitName}`;
+    if(!appData.unitTasks[key]) appData.unitTasks[key]=[];
+    appData.unitTasks[key].push({title,score,deadline,remark});
+    saveData();
+    closeTaskAddPanel();
+    renderSubjectPanel();
+}
+
+function getTaskKey(subject,unit,idx){
+    return `${subject}_${unit}_${idx}`;
+}
+function toggleTask(subject,unit,idx,taskScore){
+    const key = getTaskKey(subject,unit,idx);
+    if(!appData.tasks[key]) appData.tasks[key] = {done:false,score:taskScore};
+    const task = appData.tasks[key];
+    if(task.done){
+        appData.totalScore -= task.score;
+        task.done = false;
+    }else{
+        appData.totalScore += task.score;
+        task.done = true;
+    }
+    saveData();
+    renderSubjectPanel();
+    renderHeader();
+}
+function delTask(subject,unit,idx){
+    const key = `${subject}|${unit}`;
+    const list = appData.unitTasks[key];
+    if(!list) return;
+    list.splice(idx,1);
+    delete appData.tasks[getTaskKey(subject,unit,idx)];
+    saveData();
+    renderSubjectPanel();
+}
+
+function renderHeader(){
+    document.getElementById("studentName").value = appData.studentName;
+    document.getElementById("totalScore").innerText = appData.totalScore;
+    document.getElementById("continueDay").innerText = appData.continueDay;
+}
+
+function renderNav(){
+    const navWrap = document.getElementById("subjectNav");
+    navWrap.innerHTML = "";
+    appData.subjects.forEach(sub=>{
+        if(!Array.isArray(sub.units)) sub.units = [];
+        const div = document.createElement("div");
+        div.className = `sidebar-item p-2 rounded cursor-pointer flex justify-between items-center ${appData.currentSubject===sub.name?'active':''}`;
+        div.innerHTML = `
+            <span onclick="selectSubject('${sub.name}')">${sub.name}</span>
+            <i class="fa fa-times text-red-400" onclick="event.stopPropagation();delSubject('${sub.name}')"></i>
+        `;
+        navWrap.appendChild(div);
+    })
+}
+
+function renderSubjectPanel(){
+    const subject = appData.subjects.find(s=>s.name===appData.currentSubject);
+    if(!subject){
+        document.getElementById("panelTitle").innerText="请左侧选择学科";
+        document.getElementById("unitContainer").innerHTML="";
+        return;
+    }
+    if(!Array.isArray(subject.units)) subject.units = [];
+    document.getElementById("subjectPanel").classList.remove("hidden");
+    document.getElementById("shopPanel").classList.add("hidden");
+    document.getElementById("panelTitle").innerText = `📖 ${subject.name}`;
+    const container = document.getElementById("unitContainer");
+    container.innerHTML="";
+    subject.units.forEach(unit=>{
+        const taskKey = `${subject.name}|${unit}`;
+        const unitTasks = appData.unitTasks[taskKey] || [];
+        let finishCount = 0;
+        unitTasks.forEach((_,idx)=>{
+            const done = appData.tasks[getTaskKey(subject.name,unit,idx)]?.done;
+            if(done) finishCount++;
+        });
+        const cardWrap = document.createElement("div");
+        cardWrap.className = "task-card bg-card rounded-lg p-4 shadow border";
+        let html = `<div class="flex justify-between items-center mb-3">
+            <div>
+                <h3 class="font-bold text-base">${unit}</h3>
+                <span class="text-xs text-slate-500">已完成 ${finishCount}/${unitTasks.length}</span>
+            </div>
+            <button onclick="openTaskAddPanel('${unit}')" class="text-sm bg-green-500 text-white px-2 py-1 rounded">+添加任务</button>
+        </div>`;
+        if(unitTasks.length===0){
+            html += `<div class="text-slate-400 text-sm">暂无任务，点击添加任务</div>`;
+        }
+        unitTasks.forEach((t,idx)=>{
+            const key = getTaskKey(subject.name,unit,idx);
+            const done = appData.tasks[key]?.done || false;
+            let tipText = "";
+            if(t.deadline) tipText += `📅${t.deadline} `;
+            if(t.remark) tipText += `｜${t.remark}`;
+            html += `
+            <div class="flex items-start gap-2 mb-2">
+                <input type="checkbox" ${done?"checked":""} onchange="toggleTask('${subject.name}','${unit}',${idx},${t.score})" class="w-4 h-4 cursor-pointer mt-1">
+                <div class="flex-1">
+                    <div class="${done?'line-through text-slate-400':''}">${t.title} <span class="text-xs text-sun">+${t.score}分</span></div>
+                    ${tipText ? `<div class="text-xs text-slate-400">${tipText}</div>` : ""}
+                </div>
+                <i class="fa fa-trash-o text-red-400 cursor-pointer mt-1" onclick="delTask('${subject.name}','${unit}',${idx})"></i>
+            </div>`;
+        })
+        cardWrap.innerHTML = html;
+        container.appendChild(cardWrap);
+    })
+}
+
+function renderShop(){
+    document.getElementById("subjectPanel").classList.add("hidden");
+    document.getElementById("shopPanel").classList.remove("hidden");
+    const container = document.getElementById("shopContainer");
+    container.innerHTML="";
+    appData.shopRewards.forEach((r,idx)=>{
+        const div = document.createElement("div");
+        div.className="bg-card rounded-lg p-4 shadow border";
+        div.innerHTML = `
+            <h4 class="font-bold">${r.name}</h4>
+            <p class="text-sun my-2">需要积分：${r.cost}</p>
+            <div class="flex gap-2">
+                <button onclick="exchangeReward(${idx})" class="bg-green-500 text-white px-2 py-1 rounded text-sm">兑换</button>
+                <button onclick="delReward(${idx})" class="bg-red-400 text-white px-2 py-1 rounded text-sm">删除</button>
+            </div>
+        `;
+        container.appendChild(div);
+    })
+}
+
+function renderAll(){
+    renderHeader();
+    renderNav();
+    if(appData.showShop) renderShop();
+    else renderSubjectPanel();
+}
+
+function switchShop(){
+    appData.showShop = !appData.showShop;
+    saveData();
+    renderAll();
+}
+
+function addReward(){
+    const name = document.getElementById("newRewardName").value.trim();
+    const cost = parseInt(document.getElementById("newRewardCost").value);
+    if(!name || isNaN(cost) || cost <=0){
+        alert("请填写有效的奖励名称和积分！");
+        return;
+    }
+    appData.shopRewards.push({name,cost});
+    saveData();
+    renderShop();
+    document.getElementById("newRewardName").value="";
+    document.getElementById("newRewardCost").value="";
+}
+function delReward(idx){
+    appData.shopRewards.splice(idx,1);
+    saveData();
+    renderShop();
+}
+function exchangeReward(idx){
+    const r = appData.shopRewards[idx];
+    if(appData.totalScore < r.cost){
+        alert("积分不足，无法兑换！");
+        return;
+    }
+    if(!confirm(`确认消耗${r.cost}积分兑换【${r.name}】？`)) return;
+    appData.totalScore -= r.cost;
+    saveData();
+    renderAll();
+    alert("兑换成功！");
+}
+
+function exportData(){
+    const blob = new Blob([JSON.stringify(appData,null,2)],{type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "学习工作台_自定义备份.json";
+    a.click();
+}
+function importData(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{
+        try{
+            const data = JSON.parse(ev.target.result);
+            appData = data;
+            // 导入后自动修复所有学科数组
+            appData.subjects.forEach(sub=>{
+                if(!Array.isArray(sub.units)) sub.units = [];
+            })
+            saveData();
+            renderAll();
+            updateMainTitle();
+            alert("数据导入成功！");
+        }catch(err){
+            alert("备份文件格式错误！");
+        }
+    }
+    reader.readAsText(file);
+}
+function clearAllData(){
+    localStorage.removeItem("sy7studyDataV2");
+    appData = {
+        studentName:"",totalScore:0,continueDay:0,lastCheckDate:"",
+        subjects:JSON.parse(JSON.stringify(DEFAULT_SUBJECTS)),
+        unitTasks:{},tasks:{},
+        shopRewards:JSON.parse(JSON.stringify(DEFAULT_REWARDS)),
+        currentSubject:"",showShop:false
+    };
+    renderAll();
+    updateMainTitle();
+}
+
+// 初始化
+loadData();
+</script>
+</body>
+</html>
