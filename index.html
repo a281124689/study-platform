@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>学习工作台【自定义修复版】</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
@@ -25,28 +25,37 @@
     <style>
         .task-card {transition: 0.2s ease;}
         .task-card:hover {transform: translateY(-2px);box-shadow: 0 4px 12px rgba(0,0,0,0.08);}
-        .sidebar-item.active {background-color: #2563eb;color:#fff;}
+        .sidebar-item.active {background-color: #2563eb;color:#fff !important;}
         ::-webkit-scrollbar {width:6px;height:6px;}
         ::-webkit-scrollbar-thumb {background:#cbd5e1;border-radius:4px;}
+        .mobile-sidebar {
+            transition: transform 0.3s ease;
+        }
+        .sidebar-hide {
+            transform: translateX(-100%);
+        }
     </style>
 </head>
 <body class="bg-slate-100 h-screen flex flex-col overflow-hidden">
     <!-- 顶部头部 -->
     <header class="bg-white shadow-sm px-4 py-3 flex items-center justify-between z-10 flex-wrap gap-3">
-        <div class="flex items-center gap-4 flex-wrap">
+        <div class="flex items-center gap-3 flex-wrap">
+            <button id="menuBtn" class="md:hidden bg-slate-200 p-2 rounded">
+                <i class="fa fa-bars"></i>
+            </button>
             <h1 id="mainTitle" class="text-xl font-bold text-primary">📚 学习工作台（自定义修复版）</h1>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
                 <span>学生：</span>
                 <input id="studentName" class="border border-slate-300 rounded px-2 py-1 w-36 focus:outline-none focus:ring-1 focus:ring-primary">
                 <button onclick="saveName()" class="text-sm bg-primary text-white px-2 py-1 rounded">保存</button>
             </div>
         </div>
-        <div class="flex items-center gap-4 flex-wrap">
-            <div class="text-sun font-semibold"><i class="fa fa-sun-o"></i> 阳光积分：<span id="totalScore">0</span></div>
-            <div class="text-slate-700"><i class="fa fa-calendar-check-o"></i> 连续打卡：<span id="continueDay">0</span> 天</div>
-            <button onclick="dailyCheck()" class="bg-green-500 text-white px-3 py-1.5 rounded hover:bg-green-600 whitespace-nowrap">每日打卡 +5积分</button>
+        <div class="flex items-center gap-3 flex-wrap">
+            <div class="text-sun font-semibold text-sm"><i class="fa fa-sun-o"></i> 积分：<span id="totalScore">0</span></div>
+            <div class="text-slate-700 text-sm"><i class="fa fa-calendar-check-o"></i> 连续打卡：<span id="continueDay">0</span> 天</div>
+            <button onclick="dailyCheck()" class="bg-green-500 text-white px-3 py-1.5 rounded hover:bg-green-600 whitespace-nowrap text-sm">每日打卡 +5积分</button>
             <div class="relative group">
-                <button class="bg-slate-200 px-3 py-1.5 rounded">数据管理</button>
+                <button class="bg-slate-200 px-3 py-1.5 rounded text-sm">数据管理</button>
                 <div class="hidden group-hover:block absolute right-0 mt-1 bg-white shadow-lg rounded border w-44 z-20">
                     <button onclick="exportData()" class="w-full text-left px-3 py-2 hover:bg-slate-100">导出备份</button>
                     <label class="block w-full text-left px-3 py-2 hover:bg-slate-100 cursor-pointer">
@@ -60,10 +69,13 @@
         </div>
     </header>
 
-    <div class="flex flex-1 overflow-hidden">
+    <div class="flex flex-1 overflow-hidden relative">
         <!-- 左侧学科导航 -->
-        <aside class="w-64 bg-white shadow p-3 overflow-y-auto flex-shrink-0">
-            <h3 class="font-bold text-slate-600 mb-3">📖 学科导航</h3>
+        <aside id="sidebar" class="mobile-sidebar w-64 bg-white shadow p-3 overflow-y-auto flex-shrink-0 fixed md:static inset-y-0 left-0 z-40 md:z-auto sidebar-hide md:transform-none">
+            <div class="flex justify-between items-center mb-3 md:hidden">
+                <h3 class="font-bold text-slate-600">📖 学科导航</h3>
+                <button id="closeSideBtn" class="text-slate-500 text-xl"><i class="fa fa-times"></i></button>
+            </div>
             <div class="flex gap-1 mb-3">
                 <input id="newSubjectInput" placeholder="新增学科名称" class="border rounded px-2 py-1 flex-1 text-sm">
                 <button onclick="addSubject()" class="bg-primary text-white px-2 rounded text-sm">添加</button>
@@ -79,9 +91,11 @@
                 </button>
             </div>
         </aside>
+        <!-- 移动端遮罩 -->
+        <div id="mask" class="fixed inset-0 bg-black/30 z-30 hidden md:hidden"></div>
 
         <!-- 主内容区域 -->
-        <main class="flex-1 p-5 overflow-y-auto">
+        <main class="flex-1 p-3 md:p-5 overflow-y-auto">
             <div id="subjectPanel">
                 <h2 class="text-lg font-bold mb-4" id="panelTitle">请左侧选择学科</h2>
                 <div id="unitContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -180,6 +194,38 @@ let appData = {
     showShop:false
 };
 
+// 侧边栏DOM
+const sidebar = document.getElementById('sidebar');
+const mask = document.getElementById('mask');
+const menuBtn = document.getElementById('menuBtn');
+const closeSideBtn = document.getElementById('closeSideBtn');
+function openSidebar(){
+    sidebar.classList.remove('sidebar-hide');
+    mask.classList.remove('hidden');
+}
+function closeSidebar(){
+    sidebar.classList.add('sidebar-hide');
+    mask.classList.add('hidden');
+}
+menuBtn.addEventListener('click',openSidebar);
+closeSideBtn.addEventListener('click',closeSidebar);
+mask.addEventListener('click',closeSidebar);
+
+// ==========【修复后的核心选中函数】==========
+function selectSubject(name){
+    appData.currentSubject = name;
+    appData.showShop = false;
+    const sub = appData.subjects.find(s=>s.name === name);
+    if(sub && !Array.isArray(sub.units)) sub.units = [];
+    saveData();
+    renderAll();
+    // 移动端选中后关闭侧边栏
+    if(window.innerWidth < 768){
+        closeSidebar();
+    }
+}
+// ===========================================
+
 // 更新顶部标题函数
 function updateMainTitle(){
     const titleDom = document.getElementById("mainTitle");
@@ -195,7 +241,6 @@ function updateMainTitle(){
 function loadData(){
     const raw = localStorage.getItem("sy7studyDataV2");
     if(raw) appData = JSON.parse(raw);
-    // 【修复核心】遍历所有学科，兜底保证units一定是数组
     appData.subjects.forEach(sub=>{
         if(!Array.isArray(sub.units)) sub.units = [];
     })
@@ -251,7 +296,7 @@ function dailyCheck(){
     alert(`打卡成功！获得5积分，连续打卡${appData.continueDay}天`);
 }
 
-// 新增学科（稳定版）
+// 新增学科
 function addSubject(){
     const name = document.getElementById("newSubjectInput").value.trim();
     if(!name) return alert("请输入学科名称");
@@ -275,17 +320,7 @@ function delSubject(name){
     saveData();
     renderAll();
 }
-function selectSubject(name){
-    appData.currentSubject = name;
-    appData.showShop = false;
-    // 选中学科时强制修复units数组
-    const sub = appData.subjects.find(s=>s.name === name);
-    if(sub && !Array.isArray(sub.units)) sub.units = [];
-    saveData();
-    renderAll();
-}
 
-// 单元管理
 function openEditPanel(){
     document.getElementById("editPanel").classList.remove("hidden");
     renderUnitEditList();
@@ -297,7 +332,6 @@ function renderUnitEditList(){
     const wrap = document.getElementById("unitEditList");
     const sub = appData.subjects.find(s=>s.name===appData.currentSubject);
     if(!sub) {wrap.innerHTML="<div class='text-slate-400'>请先选择左侧学科</div>";return;}
-    // 兜底修复
     if(!Array.isArray(sub.units)) sub.units = [];
     let html="";
     sub.units.forEach((u,i)=>{
@@ -311,7 +345,6 @@ function renderUnitEditList(){
 function addUnit(){
     const sub = appData.subjects.find(s=>s.name===appData.currentSubject);
     if(!sub) return alert("请先选择学科");
-    // 兜底修复
     if(!Array.isArray(sub.units)) sub.units = [];
     const name = document.getElementById("newUnitInput").value.trim();
     if(!name) return alert("填写单元名称");
@@ -338,7 +371,6 @@ function delUnit(index){
     renderSubjectPanel();
 }
 
-// 任务弹窗
 function openTaskAddPanel(unitName){
     document.getElementById("targetUnitName").value = unitName;
     document.getElementById("taskTitleInput").value="";
@@ -548,7 +580,6 @@ function importData(e){
         try{
             const data = JSON.parse(ev.target.result);
             appData = data;
-            // 导入后自动修复所有学科数组
             appData.subjects.forEach(sub=>{
                 if(!Array.isArray(sub.units)) sub.units = [];
             })
